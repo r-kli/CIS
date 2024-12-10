@@ -229,7 +229,7 @@ class ExcelComparator:
                                             # Create rich text with formatting
                                             parts = []
                                             default_font = InlineFont(color='000000')  # Black color for regular text
-                                            highlight_font = InlineFont(bold=True, color='FF0000')  # Red bold for changes
+                                            highlight_font = InlineFont(b=True, color='FF0000')  # Red bold for changes
                                             
                                             for part in old_text.split('*'):
                                                 if part:
