@@ -6,29 +6,60 @@ def validate_files(file1, file2):
     Validate that the uploaded files are valid Excel files containing CIS benchmark data.
     """
     try:
-        # Try to read more rows to ensure we catch regulation numbers
-        df1 = pd.read_excel(file1, nrows=20)
-        df2 = pd.read_excel(file2, nrows=20)
+        print("Starting file validation...")
+        # Read all sheets to find the one with benchmark data
+        xlsx1 = pd.ExcelFile(file1)
+        xlsx2 = pd.ExcelFile(file2)
         
-        # Check if files have at least one column
-        if df1.empty or df2.empty or len(df1.columns) < 1 or len(df2.columns) < 1:
+        print(f"File 1 sheets: {xlsx1.sheet_names}")
+        print(f"File 2 sheets: {xlsx2.sheet_names}")
+        
+        # Try each sheet until we find one with valid data
+        for sheet_name in xlsx1.sheet_names:
+            try:
+                df1 = pd.read_excel(xlsx1, sheet_name)
+                if not df1.empty and len(df1.columns) > 0:
+                    print(f"Found valid sheet in file 1: {sheet_name}")
+                    break
+            except Exception as e:
+                print(f"Error reading sheet {sheet_name} in file 1: {str(e)}")
+                continue
+        
+        for sheet_name in xlsx2.sheet_names:
+            try:
+                df2 = pd.read_excel(xlsx2, sheet_name)
+                if not df2.empty and len(df2.columns) > 0:
+                    print(f"Found valid sheet in file 2: {sheet_name}")
+                    break
+            except Exception as e:
+                print(f"Error reading sheet {sheet_name} in file 2: {str(e)}")
+                continue
+        
+        if df1.empty or df2.empty:
+            print("One or both files contain no valid data")
+            return False
+            
+        # Function to check for any numeric-like patterns in the text
+        def has_regulation_format(text):
+            if pd.isna(text):
+                return False
+            text = str(text).strip()
+            # More permissive pattern that looks for any number-like structure
+            return bool(re.search(r'\d', text))
+        
+        # Check first few columns for regulation numbers
+        def find_regulation_column(df):
+            for col_idx in range(min(3, len(df.columns))):
+                valid_count = sum(1 for val in df.iloc[:20, col_idx] if has_regulation_format(val))
+                if valid_count >= 2:  # Only need 2 matches to consider it valid
+                    return True
             return False
         
-        # Check if the first column contains regulation-like numbers
-        def has_regulation_numbers(df):
-            first_col = df.iloc[:, 0]
-            # More lenient pattern that allows for various regulation number formats
-            pattern = re.compile(r'.*\d+(\.\d+)*.*')
-            valid_entries = 0
-            for val in first_col:
-                if isinstance(val, (str, int, float)) and not pd.isna(val):
-                    val_str = str(val).strip()
-                    if pattern.match(val_str):
-                        valid_entries += 1
-            # Return True if we find at least 3 valid regulation numbers
-            return valid_entries >= 3
+        file1_valid = find_regulation_column(df1)
+        file2_valid = find_regulation_column(df2)
         
-        return has_regulation_numbers(df1) and has_regulation_numbers(df2)
+        print(f"Validation results - File 1: {file1_valid}, File 2: {file2_valid}")
+        return file1_valid and file2_valid
         
     except Exception as e:
         print(f"Validation error: {str(e)}")
