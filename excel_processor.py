@@ -91,38 +91,74 @@ class ExcelComparator:
         return self.differences_df
 
     def generate_output_excel(self):
-        """Generate formatted Excel output with differences highlighted."""
+        """Generate formatted Excel output maintaining original structure with differences."""
+        xlsx1 = pd.ExcelFile(self.file1)
+        xlsx2 = pd.ExcelFile(self.file2)
+        
         wb = Workbook()
-        ws = wb.active
-        ws.title = "Differences"
         
-        # Write headers
-        headers = ['Sheet', 'Regulation', 'Column', 'Old_Value', 'New_Value']
-        for col, header in enumerate(headers, 1):
-            ws.cell(row=1, column=col, value=header)
-        
-        # Write data and apply formatting
-        for row_idx, row in enumerate(self.differences_df.itertuples(), 2):
-            ws.cell(row=row_idx, column=1, value=row.Sheet)
-            ws.cell(row=row_idx, column=2, value=row.Regulation)
-            ws.cell(row=row_idx, column=3, value=row.Column)
-            ws.cell(row=row_idx, column=4, value=str(row.Old_Value))
-            
-            # Highlight new value in green
-            new_value_cell = ws.cell(row=row_idx, column=5, value=str(row.New_Value))
-            new_value_cell.fill = self.green_fill
-        
-        # Adjust column widths
-        for column in ws.columns:
-            max_length = 0
-            column = list(column)
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column[0].column_letter].width = adjusted_width
+        # Process each sheet
+        for sheet_name in xlsx1.sheet_names:
+            if sheet_name in xlsx2.sheet_names:
+                # Read both sheets
+                df1 = pd.read_excel(xlsx1, sheet_name)
+                df2 = pd.read_excel(xlsx2, sheet_name)
+                
+                # Create worksheet
+                if sheet_name == xlsx1.sheet_names[0]:
+                    ws = wb.active
+                    ws.title = sheet_name
+                else:
+                    ws = wb.create_sheet(sheet_name)
+                
+                # Write headers
+                for col_idx, col_name in enumerate(df1.columns, 1):
+                    ws.cell(row=1, column=col_idx, value=col_name)
+                
+                # Get differences for this sheet
+                sheet_differences = self.differences_df[self.differences_df['Sheet'] == sheet_name]
+                
+                # Track rows that need difference rows
+                diff_regulations = set(sheet_differences['Regulation'].unique())
+                
+                # Write data
+                output_row = 2  # Start after headers
+                for idx, row in df1.iterrows():
+                    reg_num = str(row.iloc[0])  # Assuming first column is regulation number
+                    
+                    # Write original row
+                    for col_idx, value in enumerate(row, 1):
+                        ws.cell(row=output_row, column=col_idx, value=value)
+                    
+                    # If this regulation has differences, add the new values row
+                    if reg_num in diff_regulations:
+                        output_row += 1
+                        new_row = df2[df2.iloc[:, 0].astype(str) == reg_num].iloc[0]
+                        
+                        # Get columns with differences for this regulation
+                        diff_columns = sheet_differences[
+                            sheet_differences['Regulation'] == reg_num
+                        ]['Column'].unique()
+                        
+                        # Write new values row with green highlighting for changed cells
+                        for col_idx, value in enumerate(new_row, 1):
+                            cell = ws.cell(row=output_row, column=col_idx, value=value)
+                            if df1.columns[col_idx-1] in diff_columns:
+                                cell.fill = self.green_fill
+                    
+                    output_row += 1
+                
+                # Adjust column widths
+                for column in ws.columns:
+                    max_length = 0
+                    column = list(column)
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = (max_length + 2)
+                    ws.column_dimensions[column[0].column_letter].width = adjusted_width
         
         return wb
