@@ -115,8 +115,8 @@ class ExcelComparator:
                 # Create worksheet
                 ws = wb.create_sheet(sheet_name)
                 
-                # Set default row height (15 points is Excel's standard)
-                ws.sheet_format.defaultRowHeight = 15
+                # Set default row height to 20 points
+                ws.sheet_format.defaultRowHeight = 20
                 
                 # Write headers
                 for col_idx, col_name in enumerate(df1.columns, 1):
