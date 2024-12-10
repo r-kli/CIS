@@ -165,35 +165,43 @@ class ExcelComparator:
                     ws.row_dimensions[output_row].height = 20
                     
                     if reg_key in diff_regulations and reg_key in reg_set2:
-                        output_row += 1
-                        for _, new_row in df2.iterrows():
-                            if self.create_reg_key(new_row, section_col, rec_col) == reg_key:
-                                diff_info = sheet_differences[
-                                    (sheet_differences['Regulation'] == reg_key)
-                                ]
+                        # Find the corresponding row in df2
+                        new_row = next(row2 for _, row2 in df2.iterrows() 
+                                     if self.create_reg_key(row2, section_col, rec_col) == reg_key)
+                        diff_info = sheet_differences[
+                            (sheet_differences['Regulation'] == reg_key)
+                        ]
+                        
+                        for col_idx, value in enumerate(row, 1):
+                            cell = ws.cell(row=output_row, column=col_idx, value=value)
+                            cell.alignment = self.no_wrap_alignment
+                            
+                            col_name = df1.columns[col_idx-1]
+                            col_diffs = diff_info[diff_info['Column'] == col_name]
+                            
+                            if not col_diffs.empty:
+                                # Get the old and new values
+                                old_value = value
+                                new_value = new_row[col_name]
                                 
-                                for col_idx, value in enumerate(new_row, 1):
-                                    cell = ws.cell(row=output_row, column=col_idx, value=value)
-                                    cell.alignment = self.no_wrap_alignment
+                                if pd.notna(old_value) or pd.notna(new_value):
+                                    cell.fill = self.green_fill
+                                    text_diffs = col_diffs.iloc[0]['Text_Differences']
                                     
-                                    col_name = df1.columns[col_idx-1]
-                                    col_diffs = diff_info[diff_info['Column'] == col_name]
+                                    # Format the cell with old (red) and new (blue) text differences
+                                    deletions = text_diffs['deletions']
+                                    insertions = text_diffs['insertions']
                                     
-                                    if not col_diffs.empty:
-                                        # Get the old and new values
-                                        old_value = row[col_name]
-                                        new_value = value
+                                    if deletions or insertions:
+                                        change_text = []
+                                        if deletions:
+                                            deleted_parts = [f"[-{part[2]}-]" for part in deletions]
+                                            change_text.extend(deleted_parts)
+                                        if insertions:
+                                            inserted_parts = [f"[+{part[2]}+]" for part in insertions]
+                                            change_text.extend(inserted_parts)
                                         
-                                        if pd.notna(old_value) and pd.notna(new_value):
-                                            cell.fill = self.green_fill
-                                            # Format as: old_text[strikethrough] + new_text[blue bold]
-                                            text_diffs = col_diffs.iloc[0]['Text_Differences']
-                                            combined_text = f"{old_value} → {new_value}"
-                                            cell.value = combined_text
-                                            cell.font = self.changed_text_font
-                                
-                                ws.row_dimensions[output_row].height = 20
-                                break
+                                        cell.value = " → ".join(change_text)
                     
                     output_row += 1
                 
