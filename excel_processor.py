@@ -208,16 +208,45 @@ class ExcelComparator:
                                         
                                         # Create text with highlighted changes
                                         if deletions or insertions:
+                                            # Get the full old and new text
+                                            old_text = str(old_value) if pd.notna(old_value) else ""
+                                            new_text = str(new_value) if pd.notna(new_value) else ""
+                                            
                                             # Process old text - highlight deleted parts in red
                                             for d_start, d_end, d_text in deletions:
-                                                old_text = old_text.replace(d_text, f"**{d_text}**")
+                                                old_text = old_text.replace(d_text, f"*{d_text}*")
                                             
                                             # Process new text - highlight inserted parts in red
                                             for i_start, i_end, i_text in insertions:
-                                                new_text = new_text.replace(i_text, f"**{i_text}**")
+                                                new_text = new_text.replace(i_text, f"*{i_text}*")
                                             
                                             # Combine with arrow separator
                                             cell.value = f"{old_text} --> {new_text}"
+                                            
+                                            # Apply rich text formatting
+                                            from openpyxl.cell.rich_text import TextBlock, InlineFont
+                                            
+                                            # Create rich text with formatting
+                                            parts = []
+                                            for part in old_text.split('*'):
+                                                if part:
+                                                    if old_text.find(f"*{part}*") != -1:
+                                                        parts.append(TextBlock(part, InlineFont(bold=True, color='FF0000')))
+                                                    else:
+                                                        parts.append(TextBlock(part))
+                                            
+                                            # Add arrow separator
+                                            parts.append(TextBlock(" --> "))
+                                            
+                                            # Add new text parts with formatting
+                                            for part in new_text.split('*'):
+                                                if part:
+                                                    if new_text.find(f"*{part}*") != -1:
+                                                        parts.append(TextBlock(part, InlineFont(bold=True, color='FF0000')))
+                                                    else:
+                                                        parts.append(TextBlock(part))
+                                            
+                                            cell.value = parts
                     
                     output_row += 1
                 
