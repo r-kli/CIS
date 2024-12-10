@@ -122,6 +122,7 @@ class ExcelComparator:
                 for col_idx, col_name in enumerate(df1.columns, 1):
                     cell = ws.cell(row=1, column=col_idx, value=col_name)
                     cell.alignment = self.no_wrap_alignment
+                    ws.row_dimensions[1].height = 20
                 
                 # Get the section column (required)
                 section_col = df1.columns[0]  # 'Section #'
@@ -155,6 +156,9 @@ class ExcelComparator:
                         if reg_key not in reg_set2:
                             cell.fill = self.red_fill
                     
+                    # Set fixed row height
+                    ws.row_dimensions[output_row].height = 20
+                    
                     # If this regulation exists in both files and has differences
                     if reg_key in diff_regulations and reg_key in reg_set2:
                         output_row += 1
@@ -172,6 +176,9 @@ class ExcelComparator:
                                     cell.alignment = self.no_wrap_alignment
                                     if df1.columns[col_idx-1] in diff_columns:
                                         cell.fill = self.green_fill
+                                
+                                # Set fixed row height for the difference row
+                                ws.row_dimensions[output_row].height = 20
                                 break
                     
                     output_row += 1
@@ -187,6 +194,9 @@ class ExcelComparator:
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
                                     cell.alignment = self.no_wrap_alignment
                                     cell.fill = self.green_fill
+                                
+                                # Set fixed row height for new regulation row
+                                ws.row_dimensions[output_row].height = 20
                                 output_row += 1
                                 break
                 
