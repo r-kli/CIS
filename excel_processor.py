@@ -10,6 +10,7 @@ class ExcelComparator:
         self.file2 = file2
         self.differences_df = pd.DataFrame()
         self.green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
+        self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
 
     def parse_regulation_number(self, number):
         """Parse regulation numbers into comparable format."""
@@ -123,15 +124,24 @@ class ExcelComparator:
                 
                 # Write data
                 output_row = 2  # Start after headers
+                
+                # Get sets of regulation numbers for comparison
+                reg_set1 = set(df1.iloc[:, 0].astype(str))
+                reg_set2 = set(df2.iloc[:, 0].astype(str))
+                
+                # Process original file rows
                 for idx, row in df1.iterrows():
-                    reg_num = str(row.iloc[0])  # Assuming first column is regulation number
+                    reg_num = str(row.iloc[0])
                     
                     # Write original row
                     for col_idx, value in enumerate(row, 1):
-                        ws.cell(row=output_row, column=col_idx, value=value)
+                        cell = ws.cell(row=output_row, column=col_idx, value=value)
+                        # Highlight removed regulations in red
+                        if reg_num not in reg_set2:
+                            cell.fill = self.red_fill
                     
-                    # If this regulation has differences, add the new values row
-                    if reg_num in diff_regulations:
+                    # If this regulation exists in both files and has differences
+                    if reg_num in diff_regulations and reg_num in reg_set2:
                         output_row += 1
                         new_row = df2[df2.iloc[:, 0].astype(str) == reg_num].iloc[0]
                         
@@ -147,6 +157,17 @@ class ExcelComparator:
                                 cell.fill = self.green_fill
                     
                     output_row += 1
+                
+                # Add new regulations (those in file2 but not in file1)
+                new_regs = reg_set2 - reg_set1
+                if new_regs:
+                    for reg_num in sorted(new_regs):
+                        new_row = df2[df2.iloc[:, 0].astype(str) == reg_num].iloc[0]
+                        # Write new regulation row with all cells in green
+                        for col_idx, value in enumerate(new_row, 1):
+                            cell = ws.cell(row=output_row, column=col_idx, value=value)
+                            cell.fill = self.green_fill
+                        output_row += 1
                 
                 # Adjust column widths
                 for column in ws.columns:
