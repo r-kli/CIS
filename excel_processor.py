@@ -12,24 +12,14 @@ class ExcelComparator:
         self.green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
 
-    def parse_regulation_number(self, number):
-        """Parse regulation numbers into comparable format."""
-        if pd.isna(number):
-            return []
-        # Convert to string and clean up
-        number = str(number).strip()
-        # Split by dots and convert to integers where possible
-        parts = []
-        for part in number.split('.'):
-            try:
-                parts.append(int(part))
-            except ValueError:
-                parts.append(part)
-        return parts
+    def create_reg_key(self, row, section_col, rec_col):
+        """Create a regulation key that handles empty/NaN recommendation values."""
+        section = str(row[section_col]).strip()
+        rec = str(row[rec_col]).strip() if pd.notna(row[rec_col]) and str(row[rec_col]).strip() else ""
+        return f"{section}_{rec}"
 
     def compare_files(self, progress_callback=None):
         """Compare two Excel files and identify differences."""
-        # Read all sheets from both files
         xlsx1 = pd.ExcelFile(self.file1)
         xlsx2 = pd.ExcelFile(self.file2)
         
@@ -49,19 +39,13 @@ class ExcelComparator:
                 df1_dict = {}
                 df2_dict = {}
                 
-                # Helper function to create regulation key
-                def create_reg_key(row, section_col, rec_col):
-                    section = str(row[section_col]).strip()
-                    rec = str(row[rec_col]).strip() if pd.notna(row[rec_col]) else ""
-                    return f"{section}_{rec}"
-                
                 # Build dictionaries with safe key creation
                 for _, row in df1.iterrows():
-                    key = create_reg_key(row, section_col, rec_col)
+                    key = self.create_reg_key(row, section_col, rec_col)
                     df1_dict[key] = row
                 
                 for _, row in df2.iterrows():
-                    key = create_reg_key(row, section_col, rec_col)
+                    key = self.create_reg_key(row, section_col, rec_col)
                     df2_dict[key] = row
                 
                 # Compare matching regulations
@@ -113,6 +97,7 @@ class ExcelComparator:
         xlsx2 = pd.ExcelFile(self.file2)
         
         wb = Workbook()
+        wb.remove(wb.active)  # Remove default sheet
         
         # Process each sheet
         for sheet_name in xlsx1.sheet_names:
@@ -122,15 +107,15 @@ class ExcelComparator:
                 df2 = pd.read_excel(xlsx2, sheet_name)
                 
                 # Create worksheet
-                if sheet_name == xlsx1.sheet_names[0]:
-                    ws = wb.active
-                    ws.title = sheet_name
-                else:
-                    ws = wb.create_sheet(sheet_name)
+                ws = wb.create_sheet(sheet_name)
                 
                 # Write headers
                 for col_idx, col_name in enumerate(df1.columns, 1):
                     ws.cell(row=1, column=col_idx, value=col_name)
+                
+                # Get the section and recommendation columns
+                section_col = df1.columns[0]  # 'Section #'
+                rec_col = df1.columns[1]      # 'Recommendation #'
                 
                 # Get differences for this sheet
                 sheet_differences = self.differences_df[self.differences_df['Sheet'] == sheet_name]
@@ -141,21 +126,15 @@ class ExcelComparator:
                 # Write data
                 output_row = 2  # Start after headers
                 
-                # Helper function to create regulation key
-                def create_reg_key(row, section_col, rec_col):
-                    section = str(row[section_col]).strip()
-                    rec = str(row[rec_col]).strip() if pd.notna(row[rec_col]) else ""
-                    return f"{section}_{rec}"
-                
                 # Get sets of regulation keys for comparison
-                reg_set1 = set(create_reg_key(row, df1.columns[0], df1.columns[1])
+                reg_set1 = set(self.create_reg_key(row, section_col, rec_col)
                              for _, row in df1.iterrows())
-                reg_set2 = set(create_reg_key(row, df2.columns[0], df2.columns[1])
+                reg_set2 = set(self.create_reg_key(row, section_col, rec_col)
                              for _, row in df2.iterrows())
                 
                 # Process original file rows
                 for _, row in df1.iterrows():
-                    reg_key = create_reg_key(row, df1.columns[0], df1.columns[1])
+                    reg_key = self.create_reg_key(row, section_col, rec_col)
                     
                     # Write original row
                     for col_idx, value in enumerate(row, 1):
@@ -168,7 +147,7 @@ class ExcelComparator:
                     if reg_key in diff_regulations and reg_key in reg_set2:
                         output_row += 1
                         # Find matching row in df2
-                        mask = df2.apply(lambda r: create_reg_key(r, df2.columns[0], df2.columns[1]) == reg_key, axis=1)
+                        mask = df2.apply(lambda r: self.create_reg_key(r, section_col, rec_col) == reg_key, axis=1)
                         new_row = df2[mask].iloc[0]
                         
                         # Get columns with differences for this regulation
@@ -188,7 +167,7 @@ class ExcelComparator:
                 new_regs = reg_set2 - reg_set1
                 if new_regs:
                     for reg_key in sorted(new_regs):
-                        mask = df2.apply(lambda r: create_reg_key(r, df2.columns[0], df2.columns[1]) == reg_key, axis=1)
+                        mask = df2.apply(lambda r: self.create_reg_key(r, section_col, rec_col) == reg_key, axis=1)
                         new_row = df2[mask].iloc[0]
                         # Write new regulation row with all cells in green
                         for col_idx, value in enumerate(new_row, 1):
