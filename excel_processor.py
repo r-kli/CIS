@@ -41,18 +41,21 @@ class ExcelComparator:
                 df1 = pd.read_excel(xlsx1, sheet_name)
                 df2 = pd.read_excel(xlsx2, sheet_name)
                 
-                # Ensure regulation number column exists
-                reg_col = df1.columns[0]  # Assuming first column contains regulation numbers
+                # Get the section and recommendation columns
+                section_col = df1.columns[0]  # 'Section #'
+                rec_col = df1.columns[1]      # 'Recommendation #'
                 
-                # Create dictionaries for easy lookup
-                df1_dict = {str(row[reg_col]): row for _, row in df1.iterrows()}
-                df2_dict = {str(row[reg_col]): row for _, row in df2.iterrows()}
+                # Create dictionaries for easy lookup using combined key
+                df1_dict = {f"{str(row[section_col])}_{str(row[rec_col])}": row 
+                           for _, row in df1.iterrows()}
+                df2_dict = {f"{str(row[section_col])}_{str(row[rec_col])}": row 
+                           for _, row in df2.iterrows()}
                 
                 # Compare matching regulations
-                for reg_num in set(df1_dict.keys()) | set(df2_dict.keys()):
-                    if reg_num in df1_dict and reg_num in df2_dict:
-                        row1 = df1_dict[reg_num]
-                        row2 = df2_dict[reg_num]
+                for reg_key in set(df1_dict.keys()) | set(df2_dict.keys()):
+                    if reg_key in df1_dict and reg_key in df2_dict:
+                        row1 = df1_dict[reg_key]
+                        row2 = df2_dict[reg_key]
                         
                         # Compare each cell
                         for col in df1.columns:
@@ -125,29 +128,33 @@ class ExcelComparator:
                 # Write data
                 output_row = 2  # Start after headers
                 
-                # Get sets of regulation numbers for comparison
-                reg_set1 = set(df1.iloc[:, 0].astype(str))
-                reg_set2 = set(df2.iloc[:, 0].astype(str))
+                # Get sets of regulation keys for comparison
+                reg_set1 = set(f"{str(row[df1.columns[0]])}_{str(row[df1.columns[1]])}" 
+                             for _, row in df1.iterrows())
+                reg_set2 = set(f"{str(row[df2.columns[0]])}_{str(row[df2.columns[1]])}" 
+                             for _, row in df2.iterrows())
                 
                 # Process original file rows
                 for idx, row in df1.iterrows():
-                    reg_num = str(row.iloc[0])
+                    reg_key = f"{str(row[df1.columns[0]])}_{str(row[df1.columns[1]])}"
                     
                     # Write original row
                     for col_idx, value in enumerate(row, 1):
                         cell = ws.cell(row=output_row, column=col_idx, value=value)
                         # Highlight removed regulations in red
-                        if reg_num not in reg_set2:
+                        if reg_key not in reg_set2:
                             cell.fill = self.red_fill
                     
                     # If this regulation exists in both files and has differences
-                    if reg_num in diff_regulations and reg_num in reg_set2:
+                    if reg_key in diff_regulations and reg_key in reg_set2:
                         output_row += 1
-                        new_row = df2[df2.iloc[:, 0].astype(str) == reg_num].iloc[0]
+                        mask = (df2[df2.columns[0]].astype(str) + '_' + 
+                               df2[df2.columns[1]].astype(str)) == reg_key
+                        new_row = df2[mask].iloc[0]
                         
                         # Get columns with differences for this regulation
                         diff_columns = sheet_differences[
-                            sheet_differences['Regulation'] == reg_num
+                            sheet_differences['Regulation'] == reg_key
                         ]['Column'].unique()
                         
                         # Write new values row with green highlighting for changed cells
@@ -161,8 +168,10 @@ class ExcelComparator:
                 # Add new regulations (those in file2 but not in file1)
                 new_regs = reg_set2 - reg_set1
                 if new_regs:
-                    for reg_num in sorted(new_regs):
-                        new_row = df2[df2.iloc[:, 0].astype(str) == reg_num].iloc[0]
+                    for reg_key in sorted(new_regs):
+                        mask = (df2[df2.columns[0]].astype(str) + '_' + 
+                               df2[df2.columns[1]].astype(str)) == reg_key
+                        new_row = df2[mask].iloc[0]
                         # Write new regulation row with all cells in green
                         for col_idx, value in enumerate(new_row, 1):
                             cell = ws.cell(row=output_row, column=col_idx, value=value)
