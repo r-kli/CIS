@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Alignment
+from openpyxl.styles import PatternFill, Alignment, Font, Color
 import re
 
 class ExcelComparator:
@@ -12,6 +12,7 @@ class ExcelComparator:
         self.green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
         self.no_wrap_alignment = Alignment(wrap_text=False)
+        self.changed_text_font = Font(bold=True, color='0000FF')  # Blue, bold font
 
     def create_reg_key(self, row, section_col, rec_col=None):
         """Create a regulation key that handles empty/NaN recommendation values."""
@@ -176,6 +177,8 @@ class ExcelComparator:
                                     cell.alignment = self.no_wrap_alignment
                                     if df1.columns[col_idx-1] in diff_columns:
                                         cell.fill = self.green_fill
+                                        # Apply blue, bold font to changed text
+                                        cell.font = self.changed_text_font
                                 
                                 # Set fixed row height for the difference row
                                 ws.row_dimensions[output_row].height = 20
