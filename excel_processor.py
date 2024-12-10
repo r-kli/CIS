@@ -11,6 +11,7 @@ class ExcelComparator:
         self.differences_df = pd.DataFrame()
         self.green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
+        self.no_wrap_alignment = Alignment(wrap_text=False)
 
     def create_reg_key(self, row, section_col, rec_col=None):
         """Create a regulation key that handles empty/NaN recommendation values."""
@@ -120,8 +121,7 @@ class ExcelComparator:
                 # Write headers
                 for col_idx, col_name in enumerate(df1.columns, 1):
                     cell = ws.cell(row=1, column=col_idx, value=col_name)
-                    # Disable text wrapping
-                    cell.alignment = openpyxl.styles.Alignment(wrap_text=False)
+                    cell.alignment = self.no_wrap_alignment
                 
                 # Get the section column (required)
                 section_col = df1.columns[0]  # 'Section #'
@@ -150,8 +150,7 @@ class ExcelComparator:
                     # Write original row
                     for col_idx, value in enumerate(row, 1):
                         cell = ws.cell(row=output_row, column=col_idx, value=value)
-                        # Disable text wrapping
-                        cell.alignment = openpyxl.styles.Alignment(wrap_text=False)
+                        cell.alignment = self.no_wrap_alignment
                         # Highlight removed regulations in red
                         if reg_key not in reg_set2:
                             cell.fill = self.red_fill
@@ -170,7 +169,7 @@ class ExcelComparator:
                                 # Write new values row with green highlighting for changed cells
                                 for col_idx, value in enumerate(new_row, 1):
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
-                                    cell.alignment = Alignment(wrap_text=False)
+                                    cell.alignment = self.no_wrap_alignment
                                     if df1.columns[col_idx-1] in diff_columns:
                                         cell.fill = self.green_fill
                                 break
@@ -186,6 +185,7 @@ class ExcelComparator:
                                 # Write new regulation row with all cells in green
                                 for col_idx, value in enumerate(new_row, 1):
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
+                                    cell.alignment = self.no_wrap_alignment
                                     cell.fill = self.green_fill
                                 output_row += 1
                                 break
