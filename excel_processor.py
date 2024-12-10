@@ -60,8 +60,8 @@ class ExcelComparator:
                                     'Sheet': sheet_name,
                                     'Regulation': reg_num,
                                     'Column': col,
-                                    'Old Value': row1[col],
-                                    'New Value': row2[col]
+                                    'Old_Value': row1[col],
+                                    'New_Value': row2[col]
                                 })
                     else:
                         # Handle added/removed regulations
@@ -71,8 +71,8 @@ class ExcelComparator:
                                 'Sheet': sheet_name,
                                 'Regulation': reg_num,
                                 'Column': 'Status',
-                                'Old Value': 'Present',
-                                'New Value': 'Removed'
+                                'Old_Value': 'Present',
+                                'New_Value': 'Removed'
                             })
                         else:
                             row = df2_dict[reg_num]
@@ -80,8 +80,8 @@ class ExcelComparator:
                                 'Sheet': sheet_name,
                                 'Regulation': reg_num,
                                 'Column': 'Status',
-                                'Old Value': 'Missing',
-                                'New Value': 'Added'
+                                'Old_Value': 'Missing',
+                                'New_Value': 'Added'
                             })
             
             if progress_callback:
@@ -97,7 +97,7 @@ class ExcelComparator:
         ws.title = "Differences"
         
         # Write headers
-        headers = ['Sheet', 'Regulation', 'Column', 'Old Value', 'New Value']
+        headers = ['Sheet', 'Regulation', 'Column', 'Old_Value', 'New_Value']
         for col, header in enumerate(headers, 1):
             ws.cell(row=1, column=col, value=header)
         
