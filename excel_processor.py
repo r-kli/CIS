@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Alignment
 import re
 
 class ExcelComparator:
@@ -114,9 +114,14 @@ class ExcelComparator:
                 # Create worksheet
                 ws = wb.create_sheet(sheet_name)
                 
+                # Set default row height (15 points is Excel's standard)
+                ws.sheet_format.defaultRowHeight = 15
+                
                 # Write headers
                 for col_idx, col_name in enumerate(df1.columns, 1):
-                    ws.cell(row=1, column=col_idx, value=col_name)
+                    cell = ws.cell(row=1, column=col_idx, value=col_name)
+                    # Disable text wrapping
+                    cell.alignment = openpyxl.styles.Alignment(wrap_text=False)
                 
                 # Get the section column (required)
                 section_col = df1.columns[0]  # 'Section #'
@@ -145,6 +150,8 @@ class ExcelComparator:
                     # Write original row
                     for col_idx, value in enumerate(row, 1):
                         cell = ws.cell(row=output_row, column=col_idx, value=value)
+                        # Disable text wrapping
+                        cell.alignment = openpyxl.styles.Alignment(wrap_text=False)
                         # Highlight removed regulations in red
                         if reg_key not in reg_set2:
                             cell.fill = self.red_fill
@@ -163,6 +170,7 @@ class ExcelComparator:
                                 # Write new values row with green highlighting for changed cells
                                 for col_idx, value in enumerate(new_row, 1):
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
+                                    cell.alignment = Alignment(wrap_text=False)
                                     if df1.columns[col_idx-1] in diff_columns:
                                         cell.fill = self.green_fill
                                 break
