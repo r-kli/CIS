@@ -223,19 +223,15 @@ class ExcelComparator:
                                             # Combine with arrow separator
                                             cell.value = f"{old_text} --> {new_text}"
                                             
-                                            # Format the cell to show changes clearly
-                                            # Remove markers and prepare final text
-                                            clean_old_text = old_text.replace('*', '[') \
-                                                                    .replace('*', ']')
-                                            clean_new_text = new_text.replace('*', '[') \
-                                                                    .replace('*', ']')
+                                            # Keep original text without markers
+                                            clean_old_text = old_text.replace('*', '')
+                                            clean_new_text = new_text.replace('*', '')
                                             
                                             # Set cell value with arrow separator
                                             cell.value = f"{clean_old_text} --> {clean_new_text}"
                                             
-                                            # Apply cell formatting
+                                            # Apply only cell background highlighting
                                             cell.fill = self.green_fill
-                                            cell.font = Font(bold=True)
                     
                     output_row += 1
                 
