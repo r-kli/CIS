@@ -15,20 +15,26 @@ class ExcelComparator:
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
         self.no_wrap_alignment = Alignment(wrap_text=False)
         self.changed_text_font = Font(bold=True, color='0000FF')  # Blue, bold font
+        self.deleted_text_font = Font(strike=True)  # Strikethrough font for deleted text
 
     def find_text_differences(self, text1, text2):
-        """Find the specific differences between two text strings."""
+        """Find both deletions and insertions between two text strings."""
         if pd.isna(text1) and pd.isna(text2):
-            return []
+            return {'deletions': [], 'insertions': []}
         text1 = str(text1) if not pd.isna(text1) else ""
         text2 = str(text2) if not pd.isna(text2) else ""
         
         matcher = SequenceMatcher(None, text1, text2)
-        differences = []
+        differences = {'deletions': [], 'insertions': []}
         
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'replace' or tag == 'insert':
-                differences.append((j1, j2))
+            if tag == 'delete':
+                differences['deletions'].append((i1, i2, text1[i1:i2]))
+            elif tag == 'insert':
+                differences['insertions'].append((j1, j2, text2[j1:j2]))
+            elif tag == 'replace':
+                differences['deletions'].append((i1, i2, text1[i1:i2]))
+                differences['insertions'].append((j1, j2, text2[j1:j2]))
                 
         return differences
 
@@ -174,10 +180,16 @@ class ExcelComparator:
                                     col_diffs = diff_info[diff_info['Column'] == col_name]
                                     
                                     if not col_diffs.empty:
-                                        cell.fill = self.green_fill
-                                        text_diffs = col_diffs.iloc[0]['Text_Differences']
+                                        # Get the old and new values
+                                        old_value = row[col_name]
+                                        new_value = value
                                         
-                                        if text_diffs:
+                                        if pd.notna(old_value) and pd.notna(new_value):
+                                            cell.fill = self.green_fill
+                                            # Format as: old_text[strikethrough] + new_text[blue bold]
+                                            text_diffs = col_diffs.iloc[0]['Text_Differences']
+                                            combined_text = f"{old_value} → {new_value}"
+                                            cell.value = combined_text
                                             cell.font = self.changed_text_font
                                 
                                 ws.row_dimensions[output_row].height = 20
