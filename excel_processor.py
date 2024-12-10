@@ -228,23 +228,26 @@ class ExcelComparator:
                                             
                                             # Create rich text with formatting
                                             parts = []
+                                            default_font = InlineFont(color='000000')  # Black color for regular text
+                                            highlight_font = InlineFont(bold=True, color='FF0000')  # Red bold for changes
+                                            
                                             for part in old_text.split('*'):
                                                 if part:
                                                     if old_text.find(f"*{part}*") != -1:
-                                                        parts.append(TextBlock(text=part, font=InlineFont(bold=True, color='FF0000')))
+                                                        parts.append(TextBlock(text=part, font=highlight_font))
                                                     else:
-                                                        parts.append(TextBlock(text=part))
+                                                        parts.append(TextBlock(text=part, font=default_font))
                                             
                                             # Add arrow separator
-                                            parts.append(TextBlock(text=" --> "))
+                                            parts.append(TextBlock(text=" --> ", font=default_font))
                                             
                                             # Add new text parts with formatting
                                             for part in new_text.split('*'):
                                                 if part:
                                                     if new_text.find(f"*{part}*") != -1:
-                                                        parts.append(TextBlock(text=part, font=InlineFont(bold=True, color='FF0000')))
+                                                        parts.append(TextBlock(text=part, font=highlight_font))
                                                     else:
-                                                        parts.append(TextBlock(text=part))
+                                                        parts.append(TextBlock(text=part, font=default_font))
                                             
                                             cell.value = parts
                     
