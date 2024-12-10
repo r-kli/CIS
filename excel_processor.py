@@ -202,20 +202,22 @@ class ExcelComparator:
                                     insertions = text_diffs['insertions']
                                     
                                     if deletions or insertions:
-                                        # Start with the original text
-                                        original_text = str(old_value) if pd.notna(old_value) else ""
+                                        # Get the full old and new text
+                                        old_text = str(old_value) if pd.notna(old_value) else ""
+                                        new_text = str(new_value) if pd.notna(new_value) else ""
                                         
-                                        # Format deleted text in red and new text in blue
-                                        change_text = []
-                                        if deletions:
-                                            deleted_parts = [f"<{part[2]}>" for part in deletions]
-                                            change_text.append(f"OLD: {', '.join(deleted_parts)}")
-                                        if insertions:
-                                            inserted_parts = [f"<{part[2]}>" for part in insertions]
-                                            change_text.append(f"NEW: {', '.join(inserted_parts)}")
-                                        
-                                        # Combine original text with change markers
-                                        cell.value = f"{original_text} ({' | '.join(change_text)})"
+                                        # Create text with highlighted changes
+                                        if deletions or insertions:
+                                            # Process old text - highlight deleted parts in red
+                                            for d_start, d_end, d_text in deletions:
+                                                old_text = old_text.replace(d_text, f"**{d_text}**")
+                                            
+                                            # Process new text - highlight inserted parts in red
+                                            for i_start, i_end, i_text in insertions:
+                                                new_text = new_text.replace(i_text, f"**{i_text}**")
+                                            
+                                            # Combine with arrow separator
+                                            cell.value = f"{old_text} --> {new_text}"
                     
                     output_row += 1
                 
