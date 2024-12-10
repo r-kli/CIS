@@ -83,13 +83,23 @@ class ExcelComparator:
                         for col in df1.columns:
                             if row1[col] != row2[col] and not (pd.isna(row1[col]) and pd.isna(row2[col])):
                                 differences = self.find_text_differences(row1[col], row2[col])
+                                # Create a display-friendly version of the differences
+                                diff_summary = []
+                                if differences['deletions']:
+                                    deleted = ', '.join(d[2] for d in differences['deletions'])
+                                    diff_summary.append(f"Removed: {deleted}")
+                                if differences['insertions']:
+                                    inserted = ', '.join(i[2] for i in differences['insertions'])
+                                    diff_summary.append(f"Added: {inserted}")
+                                
                                 all_differences.append({
                                     'Sheet': sheet_name,
                                     'Regulation': reg_key,
                                     'Column': col,
                                     'Old_Value': row1[col],
                                     'New_Value': row2[col],
-                                    'Text_Differences': differences
+                                    'Changes': ' | '.join(diff_summary) if diff_summary else 'Value changed',
+                                    '_differences': differences  # Keep the detailed differences for Excel generation
                                 })
                     else:
                         if reg_key in df1_dict:
@@ -116,8 +126,11 @@ class ExcelComparator:
             if progress_callback:
                 progress_callback((idx + 1) / total_sheets)
         
+        # Store complete differences internally
         self.differences_df = pd.DataFrame(all_differences)
-        return self.differences_df
+        # Return display version without internal fields
+        display_df = self.differences_df.drop(columns=['_differences'])
+        return display_df
 
     def generate_output_excel(self):
         """Generate formatted Excel output maintaining original structure with differences."""
@@ -183,7 +196,7 @@ class ExcelComparator:
                             if not col_diffs.empty and col_name not in [section_col, rec_col]:
                                 if pd.notna(old_value) or pd.notna(new_value):
                                     cell.fill = self.green_fill
-                                    text_diffs = col_diffs.iloc[0]['Text_Differences']
+                                    text_diffs = col_diffs.iloc[0]['_differences']
                                     
                                     deletions = text_diffs['deletions']
                                     insertions = text_diffs['insertions']
