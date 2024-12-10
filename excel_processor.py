@@ -12,10 +12,14 @@ class ExcelComparator:
         self.green_fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
 
-    def create_reg_key(self, row, section_col, rec_col):
+    def create_reg_key(self, row, section_col, rec_col=None):
         """Create a regulation key that handles empty/NaN recommendation values."""
         section = str(row[section_col]).strip()
-        rec = str(row[rec_col]).strip() if pd.notna(row[rec_col]) and str(row[rec_col]).strip() else ""
+        rec = ""
+        if rec_col is not None and rec_col in row.index:
+            rec_value = row[rec_col]
+            if pd.notna(rec_value) and str(rec_value).strip():
+                rec = str(rec_value).strip()
         return f"{section}_{rec}"
 
     def compare_files(self, progress_callback=None):
@@ -31,9 +35,10 @@ class ExcelComparator:
                 df1 = pd.read_excel(xlsx1, sheet_name)
                 df2 = pd.read_excel(xlsx2, sheet_name)
                 
-                # Get the section and recommendation columns
+                # Get the section column (required)
                 section_col = df1.columns[0]  # 'Section #'
-                rec_col = df1.columns[1]      # 'Recommendation #'
+                # Get recommendation column if it exists
+                rec_col = df1.columns[1] if len(df1.columns) > 1 else None
                 
                 # Create dictionaries for easy lookup using combined key
                 df1_dict = {}
@@ -113,9 +118,10 @@ class ExcelComparator:
                 for col_idx, col_name in enumerate(df1.columns, 1):
                     ws.cell(row=1, column=col_idx, value=col_name)
                 
-                # Get the section and recommendation columns
+                # Get the section column (required)
                 section_col = df1.columns[0]  # 'Section #'
-                rec_col = df1.columns[1]      # 'Recommendation #'
+                # Get recommendation column if it exists
+                rec_col = df1.columns[1] if len(df1.columns) > 1 else None
                 
                 # Get differences for this sheet
                 sheet_differences = self.differences_df[self.differences_df['Sheet'] == sheet_name]
@@ -146,20 +152,20 @@ class ExcelComparator:
                     # If this regulation exists in both files and has differences
                     if reg_key in diff_regulations and reg_key in reg_set2:
                         output_row += 1
-                        # Find matching row in df2
-                        mask = df2.apply(lambda r: self.create_reg_key(r, section_col, rec_col) == reg_key, axis=1)
-                        new_row = df2[mask].iloc[0]
-                        
-                        # Get columns with differences for this regulation
-                        diff_columns = sheet_differences[
-                            sheet_differences['Regulation'] == reg_key
-                        ]['Column'].unique()
-                        
-                        # Write new values row with green highlighting for changed cells
-                        for col_idx, value in enumerate(new_row, 1):
-                            cell = ws.cell(row=output_row, column=col_idx, value=value)
-                            if df1.columns[col_idx-1] in diff_columns:
-                                cell.fill = self.green_fill
+                        # Find matching row in df2 using the reg_key
+                        for _, new_row in df2.iterrows():
+                            if self.create_reg_key(new_row, section_col, rec_col) == reg_key:
+                                # Get columns with differences for this regulation
+                                diff_columns = sheet_differences[
+                                    sheet_differences['Regulation'] == reg_key
+                                ]['Column'].unique()
+                                
+                                # Write new values row with green highlighting for changed cells
+                                for col_idx, value in enumerate(new_row, 1):
+                                    cell = ws.cell(row=output_row, column=col_idx, value=value)
+                                    if df1.columns[col_idx-1] in diff_columns:
+                                        cell.fill = self.green_fill
+                                break
                     
                     output_row += 1
                 
@@ -167,13 +173,14 @@ class ExcelComparator:
                 new_regs = reg_set2 - reg_set1
                 if new_regs:
                     for reg_key in sorted(new_regs):
-                        mask = df2.apply(lambda r: self.create_reg_key(r, section_col, rec_col) == reg_key, axis=1)
-                        new_row = df2[mask].iloc[0]
-                        # Write new regulation row with all cells in green
-                        for col_idx, value in enumerate(new_row, 1):
-                            cell = ws.cell(row=output_row, column=col_idx, value=value)
-                            cell.fill = self.green_fill
-                        output_row += 1
+                        for _, new_row in df2.iterrows():
+                            if self.create_reg_key(new_row, section_col, rec_col) == reg_key:
+                                # Write new regulation row with all cells in green
+                                for col_idx, value in enumerate(new_row, 1):
+                                    cell = ws.cell(row=output_row, column=col_idx, value=value)
+                                    cell.fill = self.green_fill
+                                output_row += 1
+                                break
                 
                 # Adjust column widths
                 for column in ws.columns:
