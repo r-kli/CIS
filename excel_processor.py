@@ -231,20 +231,20 @@ class ExcelComparator:
                                             for part in old_text.split('*'):
                                                 if part:
                                                     if old_text.find(f"*{part}*") != -1:
-                                                        parts.append(TextBlock(part, InlineFont(bold=True, color='FF0000')))
+                                                        parts.append(TextBlock(text=part, font=InlineFont(bold=True, color='FF0000')))
                                                     else:
-                                                        parts.append(TextBlock(part))
+                                                        parts.append(TextBlock(text=part))
                                             
                                             # Add arrow separator
-                                            parts.append(TextBlock(" --> "))
+                                            parts.append(TextBlock(text=" --> "))
                                             
                                             # Add new text parts with formatting
                                             for part in new_text.split('*'):
                                                 if part:
                                                     if new_text.find(f"*{part}*") != -1:
-                                                        parts.append(TextBlock(part, InlineFont(bold=True, color='FF0000')))
+                                                        parts.append(TextBlock(text=part, font=InlineFont(bold=True, color='FF0000')))
                                                     else:
-                                                        parts.append(TextBlock(part))
+                                                        parts.append(TextBlock(text=part))
                                             
                                             cell.value = parts
                     
