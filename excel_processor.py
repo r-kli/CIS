@@ -2,7 +2,10 @@ import pandas as pd
 import numpy as np
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment, Font, Color
+from openpyxl.rich import TextBlock
+from openpyxl.cell.rich_text import TextRun
 import re
+from difflib import SequenceMatcher
 
 class ExcelComparator:
     def __init__(self, file1, file2):
@@ -13,6 +16,23 @@ class ExcelComparator:
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
         self.no_wrap_alignment = Alignment(wrap_text=False)
         self.changed_text_font = Font(bold=True, color='0000FF')  # Blue, bold font
+        self.normal_font = Font(bold=False)  # Normal font for unchanged text
+
+    def find_text_differences(self, text1, text2):
+        """Find the specific differences between two text strings."""
+        if pd.isna(text1) and pd.isna(text2):
+            return []
+        text1 = str(text1) if not pd.isna(text1) else ""
+        text2 = str(text2) if not pd.isna(text2) else ""
+        
+        matcher = SequenceMatcher(None, text1, text2)
+        differences = []
+        
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'replace' or tag == 'insert':
+                differences.append((j1, j2))
+                
+        return differences
 
     def create_reg_key(self, row, section_col, rec_col=None):
         """Create a regulation key that handles empty/NaN recommendation values."""
@@ -37,16 +57,12 @@ class ExcelComparator:
                 df1 = pd.read_excel(xlsx1, sheet_name)
                 df2 = pd.read_excel(xlsx2, sheet_name)
                 
-                # Get the section column (required)
-                section_col = df1.columns[0]  # 'Section #'
-                # Get recommendation column if it exists
+                section_col = df1.columns[0]
                 rec_col = df1.columns[1] if len(df1.columns) > 1 else None
                 
-                # Create dictionaries for easy lookup using combined key
                 df1_dict = {}
                 df2_dict = {}
                 
-                # Build dictionaries with safe key creation
                 for _, row in df1.iterrows():
                     key = self.create_reg_key(row, section_col, rec_col)
                     df1_dict[key] = row
@@ -55,24 +71,23 @@ class ExcelComparator:
                     key = self.create_reg_key(row, section_col, rec_col)
                     df2_dict[key] = row
                 
-                # Compare matching regulations
                 for reg_key in set(df1_dict.keys()) | set(df2_dict.keys()):
                     if reg_key in df1_dict and reg_key in df2_dict:
                         row1 = df1_dict[reg_key]
                         row2 = df2_dict[reg_key]
                         
-                        # Compare each cell
                         for col in df1.columns:
                             if row1[col] != row2[col] and not (pd.isna(row1[col]) and pd.isna(row2[col])):
+                                differences = self.find_text_differences(row1[col], row2[col])
                                 all_differences.append({
                                     'Sheet': sheet_name,
                                     'Regulation': reg_key,
                                     'Column': col,
                                     'Old_Value': row1[col],
-                                    'New_Value': row2[col]
+                                    'New_Value': row2[col],
+                                    'Text_Differences': differences
                                 })
                     else:
-                        # Handle added/removed regulations
                         if reg_key in df1_dict:
                             row = df1_dict[reg_key]
                             all_differences.append({
@@ -80,7 +95,8 @@ class ExcelComparator:
                                 'Regulation': reg_key,
                                 'Column': 'Status',
                                 'Old_Value': 'Present',
-                                'New_Value': 'Removed'
+                                'New_Value': 'Removed',
+                                'Text_Differences': []
                             })
                         else:
                             row = df2_dict[reg_key]
@@ -89,7 +105,8 @@ class ExcelComparator:
                                 'Regulation': reg_key,
                                 'Column': 'Status',
                                 'Old_Value': 'Missing',
-                                'New_Value': 'Added'
+                                'New_Value': 'Added',
+                                'Text_Differences': []
                             })
             
             if progress_callback:
@@ -104,106 +121,102 @@ class ExcelComparator:
         xlsx2 = pd.ExcelFile(self.file2)
         
         wb = Workbook()
-        wb.remove(wb.active)  # Remove default sheet
+        wb.remove(wb.active)
         
-        # Process each sheet
         for sheet_name in xlsx1.sheet_names:
             if sheet_name in xlsx2.sheet_names:
-                # Read both sheets
                 df1 = pd.read_excel(xlsx1, sheet_name)
                 df2 = pd.read_excel(xlsx2, sheet_name)
                 
-                # Create worksheet
                 ws = wb.create_sheet(sheet_name)
-                
-                # Set default row height to 20 points
                 ws.sheet_format.defaultRowHeight = 20
                 
-                # Write headers
                 for col_idx, col_name in enumerate(df1.columns, 1):
                     cell = ws.cell(row=1, column=col_idx, value=col_name)
                     cell.alignment = self.no_wrap_alignment
                     ws.row_dimensions[1].height = 20
                 
-                # Get the section column (required)
-                section_col = df1.columns[0]  # 'Section #'
-                # Get recommendation column if it exists
+                section_col = df1.columns[0]
                 rec_col = df1.columns[1] if len(df1.columns) > 1 else None
                 
-                # Get differences for this sheet
                 sheet_differences = self.differences_df[self.differences_df['Sheet'] == sheet_name]
-                
-                # Track rows that need difference rows
                 diff_regulations = set(sheet_differences['Regulation'].unique())
                 
-                # Write data
-                output_row = 2  # Start after headers
+                output_row = 2
                 
-                # Get sets of regulation keys for comparison
                 reg_set1 = set(self.create_reg_key(row, section_col, rec_col)
                              for _, row in df1.iterrows())
                 reg_set2 = set(self.create_reg_key(row, section_col, rec_col)
                              for _, row in df2.iterrows())
                 
-                # Process original file rows
                 for _, row in df1.iterrows():
                     reg_key = self.create_reg_key(row, section_col, rec_col)
                     
-                    # Write original row
                     for col_idx, value in enumerate(row, 1):
                         cell = ws.cell(row=output_row, column=col_idx, value=value)
                         cell.alignment = self.no_wrap_alignment
-                        # Highlight removed regulations in red
                         if reg_key not in reg_set2:
                             cell.fill = self.red_fill
                     
-                    # Set fixed row height
                     ws.row_dimensions[output_row].height = 20
                     
-                    # If this regulation exists in both files and has differences
                     if reg_key in diff_regulations and reg_key in reg_set2:
                         output_row += 1
-                        # Find matching row in df2 using the reg_key
                         for _, new_row in df2.iterrows():
                             if self.create_reg_key(new_row, section_col, rec_col) == reg_key:
-                                # Get columns with differences for this regulation
-                                diff_columns = sheet_differences[
-                                    sheet_differences['Regulation'] == reg_key
-                                ]['Column'].unique()
+                                diff_info = sheet_differences[
+                                    (sheet_differences['Regulation'] == reg_key)
+                                ]
                                 
-                                # Write new values row with green highlighting for changed cells
                                 for col_idx, value in enumerate(new_row, 1):
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
                                     cell.alignment = self.no_wrap_alignment
-                                    if df1.columns[col_idx-1] in diff_columns:
+                                    
+                                    col_name = df1.columns[col_idx-1]
+                                    col_diffs = diff_info[diff_info['Column'] == col_name]
+                                    
+                                    if not col_diffs.empty:
                                         cell.fill = self.green_fill
-                                        # Apply blue, bold font to changed text
-                                        cell.font = self.changed_text_font
+                                        text_diffs = col_diffs.iloc[0]['Text_Differences']
+                                        
+                                        if text_diffs:
+                                            rich_text = TextBlock()
+                                            current_pos = 0
+                                            value_str = str(value) if not pd.isna(value) else ""
+                                            
+                                            for start, end in text_diffs:
+                                                # Add unchanged text before difference
+                                                if current_pos < start:
+                                                    rich_text.add_text(TextRun(value_str[current_pos:start], self.normal_font))
+                                                # Add changed text
+                                                rich_text.add_text(TextRun(value_str[start:end], self.changed_text_font))
+                                                current_pos = end
+                                            
+                                            # Add remaining unchanged text
+                                            if current_pos < len(value_str):
+                                                rich_text.add_text(TextRun(value_str[current_pos:], self.normal_font))
+                                            
+                                            cell.text_block = rich_text
                                 
-                                # Set fixed row height for the difference row
                                 ws.row_dimensions[output_row].height = 20
                                 break
                     
                     output_row += 1
                 
-                # Add new regulations (those in file2 but not in file1)
                 new_regs = reg_set2 - reg_set1
                 if new_regs:
                     for reg_key in sorted(new_regs):
                         for _, new_row in df2.iterrows():
                             if self.create_reg_key(new_row, section_col, rec_col) == reg_key:
-                                # Write new regulation row with all cells in green
                                 for col_idx, value in enumerate(new_row, 1):
                                     cell = ws.cell(row=output_row, column=col_idx, value=value)
                                     cell.alignment = self.no_wrap_alignment
                                     cell.fill = self.green_fill
                                 
-                                # Set fixed row height for new regulation row
                                 ws.row_dimensions[output_row].height = 20
                                 output_row += 1
                                 break
                 
-                # Adjust column widths
                 for column in ws.columns:
                     max_length = 0
                     column = list(column)
