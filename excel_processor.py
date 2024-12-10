@@ -193,15 +193,20 @@ class ExcelComparator:
                                     insertions = text_diffs['insertions']
                                     
                                     if deletions or insertions:
+                                        # Start with the original text
+                                        original_text = str(old_value) if pd.notna(old_value) else ""
+                                        
+                                        # Format deleted text in red and new text in blue
                                         change_text = []
                                         if deletions:
-                                            deleted_parts = [f"[-{part[2]}-]" for part in deletions]
-                                            change_text.extend(deleted_parts)
+                                            deleted_parts = [f"<{part[2]}>" for part in deletions]
+                                            change_text.append(f"OLD: {', '.join(deleted_parts)}")
                                         if insertions:
-                                            inserted_parts = [f"[+{part[2]}+]" for part in insertions]
-                                            change_text.extend(inserted_parts)
+                                            inserted_parts = [f"<{part[2]}>" for part in insertions]
+                                            change_text.append(f"NEW: {', '.join(inserted_parts)}")
                                         
-                                        cell.value = " → ".join(change_text)
+                                        # Combine original text with change markers
+                                        cell.value = f"{original_text} ({' | '.join(change_text)})"
                     
                     output_row += 1
                 
