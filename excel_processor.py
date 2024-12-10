@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Alignment, Font, Color
-from openpyxl.rich import TextBlock
-from openpyxl.cell.rich_text import TextRun
+# Standard cell formatting only
 import re
 from difflib import SequenceMatcher
 
@@ -16,7 +15,6 @@ class ExcelComparator:
         self.red_fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
         self.no_wrap_alignment = Alignment(wrap_text=False)
         self.changed_text_font = Font(bold=True, color='0000FF')  # Blue, bold font
-        self.normal_font = Font(bold=False)  # Normal font for unchanged text
 
     def find_text_differences(self, text1, text2):
         """Find the specific differences between two text strings."""
@@ -180,23 +178,7 @@ class ExcelComparator:
                                         text_diffs = col_diffs.iloc[0]['Text_Differences']
                                         
                                         if text_diffs:
-                                            rich_text = TextBlock()
-                                            current_pos = 0
-                                            value_str = str(value) if not pd.isna(value) else ""
-                                            
-                                            for start, end in text_diffs:
-                                                # Add unchanged text before difference
-                                                if current_pos < start:
-                                                    rich_text.add_text(TextRun(value_str[current_pos:start], self.normal_font))
-                                                # Add changed text
-                                                rich_text.add_text(TextRun(value_str[start:end], self.changed_text_font))
-                                                current_pos = end
-                                            
-                                            # Add remaining unchanged text
-                                            if current_pos < len(value_str):
-                                                rich_text.add_text(TextRun(value_str[current_pos:], self.normal_font))
-                                            
-                                            cell.text_block = rich_text
+                                            cell.font = self.changed_text_font
                                 
                                 ws.row_dimensions[output_row].height = 20
                                 break
