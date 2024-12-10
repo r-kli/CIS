@@ -227,11 +227,12 @@ class ExcelComparator:
                                             clean_old_text = old_text.replace('*', '')
                                             clean_new_text = new_text.replace('*', '')
                                             
-                                            # Set cell value with arrow separator
-                                            cell.value = f"{clean_old_text} --> {clean_new_text}"
+                                            # Set cell value with arrow separator and new lines
+                                            cell.value = f"{clean_old_text}\n\n-->\n\n{clean_new_text}"
                                             
-                                            # Apply only cell background highlighting
+                                            # Apply cell background highlighting and wrap text
                                             cell.fill = self.green_fill
+                                            cell.alignment = Alignment(wrap_text=True, vertical='top')
                     
                     output_row += 1
                 
