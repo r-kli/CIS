@@ -172,23 +172,19 @@ class ExcelComparator:
                             (sheet_differences['Regulation'] == reg_key)
                         ]
                         
-                        for col_idx, value in enumerate(row, 1):
-                            cell = ws.cell(row=output_row, column=col_idx, value=value)
+                        # Write each column value, comparing with new_row for differences
+                        for col_idx, (old_value, new_value) in enumerate(zip(row, new_row), 1):
+                            cell = ws.cell(row=output_row, column=col_idx, value=old_value)
                             cell.alignment = self.no_wrap_alignment
                             
                             col_name = df1.columns[col_idx-1]
                             col_diffs = diff_info[diff_info['Column'] == col_name]
                             
-                            if not col_diffs.empty:
-                                # Get the old and new values
-                                old_value = value
-                                new_value = new_row[col_name]
-                                
+                            if not col_diffs.empty and col_name not in [section_col, rec_col]:
                                 if pd.notna(old_value) or pd.notna(new_value):
                                     cell.fill = self.green_fill
                                     text_diffs = col_diffs.iloc[0]['Text_Differences']
                                     
-                                    # Format the cell with old (red) and new (blue) text differences
                                     deletions = text_diffs['deletions']
                                     insertions = text_diffs['insertions']
                                     
