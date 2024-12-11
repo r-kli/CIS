@@ -13,17 +13,21 @@ def validate_files(file1, file2):
         print(f"File 1 sheets: {xlsx1.sheet_names}")
         print(f"File 2 sheets: {xlsx2.sheet_names}")
         
-        # Check specifically for Level 1 or Level 2 sheets
-        benchmark_sheets = ['Level 1', 'Level 2']
+        # Check for sheets containing Level 1 or Level 2
+        def find_benchmark_sheets(sheet_names):
+            level1_sheets = [s for s in sheet_names if 'Level 1' in s]
+            level2_sheets = [s for s in sheet_names if 'Level 2' in s]
+            return level1_sheets + level2_sheets
         
         def validate_benchmark_sheet(excel_file, sheet_name):
             try:
+                print(f"Validating sheet: {sheet_name}")
                 df = pd.read_excel(excel_file, sheet_name)
-                print(f"Reading sheet: {sheet_name}")
                 print(f"Columns found: {df.columns.tolist()}")
                 print(f"First few rows of data:\n{df.head(3)}")
                 
                 if df.empty or len(df.columns) < 1:
+                    print(f"Sheet {sheet_name} is empty or has no columns")
                     return False
                 
                 # Look for any column containing regulation numbers (checking first 3 columns)
@@ -42,14 +46,26 @@ def validate_files(file1, file2):
                 print(f"Error processing sheet {sheet_name}: {str(e)}")
                 return False
         
-        # Try to validate using any of the benchmark sheets
-        for sheet in benchmark_sheets:
-            if sheet in xlsx1.sheet_names and sheet in xlsx2.sheet_names:
-                file1_valid = validate_benchmark_sheet(xlsx1, sheet)
-                file2_valid = validate_benchmark_sheet(xlsx2, sheet)
-                if file1_valid and file2_valid:
-                    print(f"Both files validated successfully using sheet: {sheet}")
-                    return True
+        # Find and validate benchmark sheets in both files
+        sheets1 = find_benchmark_sheets(xlsx1.sheet_names)
+        sheets2 = find_benchmark_sheets(xlsx2.sheet_names)
+        
+        print(f"Found benchmark sheets in file 1: {sheets1}")
+        print(f"Found benchmark sheets in file 2: {sheets2}")
+        
+        if not sheets1 or not sheets2:
+            print("No benchmark sheets found in one or both files")
+            return False
+            
+        # Try to validate at least one sheet from each file
+        for sheet1 in sheets1:
+            file1_valid = validate_benchmark_sheet(xlsx1, sheet1)
+            if file1_valid:
+                for sheet2 in sheets2:
+                    file2_valid = validate_benchmark_sheet(xlsx2, sheet2)
+                    if file2_valid:
+                        print(f"Files validated successfully using sheets: {sheet1} and {sheet2}")
+                        return True
         
         print("No valid benchmark sheets found in both files")
         return False
